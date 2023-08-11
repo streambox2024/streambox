@@ -162,7 +162,6 @@ In our experiment setup, we use a GPU server that consists of two Intel Xeon(R) 
 (80 CUs and 16GB of memory).
 
 ### Workload
-<!--Azure function-->
 ![Workload Visible](./resource/workload_visible.png)
 In our evaluation, serverless services are invoked by dynamic invocations simulated using the production trace from [Azure function](https://azure.microsoft.com/en-us/products/functions/), which includes 7-day request statistics with diurnal and weekly patterns. There are three typical types of production traces: sporadic, periodic, and bursty. The workload is shown in the figure above.
 
@@ -177,10 +176,4 @@ In our evaluation, serverless services are invoked by dynamic invocations simula
 * [TVM](https://tvm.apache.org/docs/install/from_source.html)
 
 ### Run experiment
-<!--在这里链接到./experiment/README.md，这里记录了详细的实验过程和结果分析-->
 Our experiment details are in [experiment/README.md](./experiment/README.md)
-
-
-## Inference
-
-[1]: Fingler H, Zhu Z, Yoon E, et al. Dgsf: Disaggregated gpus for serverless functions\[C\]//2022 IEEE International Parallel and Distributed Processing Symposium (IPDPS). IEEE, 2022: 739-750.

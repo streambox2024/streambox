@@ -99,9 +99,54 @@ In this experiment, we evaluate the communication overhead of the function-IPC a
 #### Steps
 1. Build the docker image and enter the function container
     ```bash
+    cd $PATH_TO_STREAMBOX/experiment/communication/function-ipc
+    bash run.sh
+    ```
+2. Output looks like:
+    ```txt
+    > bash run.sh
+    ...
+    torch.cuda.current_device(): 0
+    Running on Tesla V100-SXM2-32GB
+    Number of GPUs: 1
+    Warming up GPU...
+    GPU warmup done!
+    Time taken to transfer data from device to host: xxx ms
+    ...
+    ```
+
+### CUDA IPC
+
+#### Description
+In this experiment, we evaluate the communication overhead of the CUDA IPC approach. [CUDA IPC](https://forums.developer.nvidia.com/t/gpu-inter-process-communications-ipc-question/35936) is a mechanism that allows multiple processes to access a single GPU. [CUDA Runtime API](https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__DEVICE.html#group__CUDART__DEVICE_1g8a37f7dfafaca652391d0758b3667539)
+
+#### Steps
+1. Build the docker image and enter the function container
+    ```bash
     cd $PATH_TO_STREAMBOX/experiment/communication/cudaipc
     bash run.sh
     ```
-    TODO
+2. Output file looks like:
+    ```txt
+    app1.txt
+    ---
+    get IPC handle1 time = 25.095000 us
+    get IPC handle2 time = 15.128000 us
+    waiting for app2
+    data1 size = 268.435455 MB
+    end-to-end time = 17632.712000 us
+    ...
+    app2.txt
+    ---
+    IPC transfer 2 times cost = 0.000000 us
+    IPC open handle 1 time = 334.944000 us
+    IPC open handle 2 time = 292.726013 us
+    NO1 kernel + handle1 time = 40.992001 us
+    NO2 kernel + handle1 time = 22.560001 us
+    NO3 kernel + handle1 time = 23.360001 us
+    NO1 kernel + handle2 time = 24.224001 us
+    NO2 kernel + handle2 time = 21.472000 us
+    NO3 kernel + handle2 time = 20.799999 us
+    ...
+    ```
 
-### CUDA IPC

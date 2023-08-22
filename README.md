@@ -11,6 +11,8 @@
       - [Code Modification](#code-modification)
       - [Compile the modified code into Pytorch](#compile-the-modified-code-into-pytorch)
     - [Guest Library](#guest-library)
+      - [Hook CUDA Runtime API](#hook-cuda-runtime-api)
+      - [Transfer API to API Proxy](#transfer-api-to-api-proxy)
     - [API Proxy](#api-proxy)
       - [stream manager](#stream-manager)
       - [event manager](#event-manager)
@@ -20,14 +22,13 @@
       - [communication manager](#communication-manager)
   - [Experiment](#experiment)
     - [Hardware Requirement](#hardware-requirement)
-    - [Workload](#workload)
     - [Software Requirement](#software-requirement)
     - [Run experiment](#run-experiment)
-  - [Inference](#inference)
 
 ## Introduction
 
-**StreamBox is a novel lightweight GPU sandbox of serverless inference.** Existing serverless inference system normally isolate functions in seperate monolithic GPU runtime, which leads to high startup delay, large memory footprint, and expensive data movement. StreamBox serves functions in different **streams** of the same gpu runtime, avoids rundant memory usage, substantially reduce the start delay. Besides, StreamBox further design fast concurrent I/O, fine-grained memory pool and unified intra-GPU communication framework. Compared to prior state-of-the-art, StreamBox reduce GPU memory footprint up to **8X**, improve throughput by **2.2X**. 
+**StreamBox is a novel lightweight GPU sandbox of serverless inference.** Existing serverless inference system normally isolate functions in seperate monolithic GPU runtime, which leads to high startup delay, large memory footprint, and expensive data movement. StreamBox serves functions in different **streams** of the same gpu runtime, avoids rundant memory usage, substantially reduce the start delay. Besides, StreamBox further design fast concurrent I/O, fine-grained memory pool and unified intra-GPU communication framework. In our evaluation, serverless services are invoked by dynamic invocations simulated using the production trace from [Azure function](https://azure.microsoft.com/en-us/products/functions/), which includes 7-day request statistics with diurnal and weekly patterns. There are three typical types of production traces: sporadic, periodic, and bursty. The workload is shown in the figure below. Compared to prior state-of-the-art, StreamBox reduce GPU memory footprint up to **8X**, improve throughput by **2.2X**. 
+![Workload Visible](./resource/workload_visible.png)
  
 
 ## Architecture
@@ -64,16 +65,47 @@ To enable **GPU partition** on each kerenl, StreamBox modifies each kernel. As t
     }
     ...
 
-    extern "C" __global__ void fused_add_nn_relu_2_kernel0(int* available_sm,float* __restrict__ T_relu, float* __restrict__ placeholder, float* __restrict__ placeholder1) {
-    //get sm used
-    int smid = get_smid();
+    extern "C" __global__ void fused_add_nn_relu_2_kernel0(int* __restrict__ available_sm,int* gtask,int* orgridsize,float* __restrict__ T_relu, float* __restrict__ placeholder, float* __restrict__ placeholder1) {
+    int smid;
+    int sm_flag;
+    //block offset, same for all the threads
+    __shared__ int basicoffset;
+    basicoffset=-1;
+    int offset=0;
     
-    //judge whether sm with id smid can be used, if available_sm[smid]==1, yes.
-    int sm_flag =available_sm[smid];
-    if (threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0 && atomicAdd(&sm_flag, 1) != 2) return;
+    if(threadIdx.x+threadIdx.y+threadIdx.z == 0)
+    {
+       //get smid
+       smid = get_smid();
+       //judge whether sm with id smid can be used, if available_sm[smid]==1, yes.
+       if (atomicAdd(&sm_flag, 1) == 2) 
+       {
+       //get virtual block number
+       basicoffset=atomicAdd(gtask+0,1);
+       }
+    } 
+    __syncthreads();
+
+    offset = basicoffset;
+    while(offset<orgridsize[0]*orgridsize[1]*orgridsize[2]&&offset>=0) {
+       __syncthreads();
+       //use vx, vy, vz to replace blockIdx.x, blockIdx.y, blockIdx.y
+       int vx = (offset)/(orgridsize[1]*orgridsize[2]);
+       int vy = (offset - (vx * orgridsize[1]*orgridsize[2])) / orgridsize[2];
+       int vz = offset - (vx * orgridsize[1]*orgridsize[2]) - vy *orgridsize[2];
     
-    //The following is the original code
-    ...
+       //The following is the original code
+       ...
+
+       //update virtual block number
+       if(threadIdx.x+threadIdx.y+threadIdx.z == 0)
+       {
+         basicoffset=atomicAdd(gtask+0,1);
+       }      
+       __syncthreads();
+       offset = basicoffset;
+    }
+
     }
 #### Compile the modified code into Pytorch
 To make use of the modified kernels in Pytorch, the modified code should be compiled into Pytorch. This process follows the tutorial [Custom C++ and CUDA Extensions](https://pytorch.org/tutorials/advanced/cpp_extension.html#custom-c-and-cuda-extensions). First, create **C Wrapper** to provide an interface that PyTorch can call. The example code is as follows.
@@ -161,10 +193,6 @@ different GPUs can utilize the point-to-point (P2P) mechanism through high-speed
 In our experiment setup, we use a GPU server that consists of two Intel Xeon(R) Gold 5117 CPU (total 28 cores), 128GB of DRAM, and four NVIDIA V100 GPU
 (80 CUs and 16GB of memory).
 
-### Workload
-![Workload Visible](./resource/workload_visible.png)
-In our evaluation, serverless services are invoked by dynamic invocations simulated using the production trace from [Azure function](https://azure.microsoft.com/en-us/products/functions/), which includes 7-day request statistics with diurnal and weekly patterns. There are three typical types of production traces: sporadic, periodic, and bursty. The workload is shown in the figure above.
-
 ### Software Requirement
 * [Docker](https://docs.docker.com/engine/install/ubuntu/)
 * [Python3](https://www.python.org/downloads/)
@@ -176,4 +204,4 @@ In our evaluation, serverless services are invoked by dynamic invocations simula
 * [TVM](https://tvm.apache.org/docs/install/from_source.html)
 
 ### Run experiment
-Our experiment details are in [experiment/README.md](./experiment/README.md)
+Our experiment details are in [experiment/README.md](./experiment/README.md).

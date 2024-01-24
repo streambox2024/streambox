@@ -33,6 +33,7 @@
 
 ## Architecture
 It can be simply considered that StreamBox consists of three parts: **model compiler, Guest Library, and API Dameon.** Given the function code inference models, model compiler transforms the source code of the models to customized kenrels and compile the kernels into Pytorch operators offline. When Requests come, the guest library intercepts all API calss, and forwards them to API Dameon. API Dameon actually uses GPU, it manages and forwards APIs received to different streams following designed policys. The details of the three components are as follows
+![Streambox Architecture](./resource/overview.png)
 ### Model Compiler
 Given the function code of inference models, model compiler first transforms the models(`.py` file) into `.cu` file, then modifies the code, and finally compile the kernels into Pytorch operators.
 #### Model Transformation

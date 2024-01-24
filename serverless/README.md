@@ -25,6 +25,8 @@ Service that provides the batch processing of the requests and send the batched 
 * Model-allowed Maximum Batch Size (i.e., the inference server will schedule the batched input once a certain number of inputs are collected)
 * Batching Timewindow (i.e., the longest time period the inference server will wait for inputs to form a batch)
 
+And it support multi-tenancy, which means it can serve multiple requests from different users at the same time, with NVIDIA MPS as isolation.
+
 ## Contents
 
 ```txt
